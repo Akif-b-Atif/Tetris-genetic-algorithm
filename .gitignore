@@ -1,0 +1,8 @@
+web/node_modules/
+web/dist/
+bot-trainer/output/
+bot-trainer/output_long/
+bot-trainer/__pycache__/
+bot-trainer/**/__pycache__/
+*.pyc
+.DS_Store

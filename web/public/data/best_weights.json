@@ -1,0 +1,43 @@
+{
+  "weightNames": [
+    "aggregate_height",
+    "max_height",
+    "bumpiness",
+    "holes",
+    "row_transitions",
+    "column_transitions",
+    "well_sum",
+    "clear_single",
+    "clear_double",
+    "clear_triple",
+    "clear_tetris"
+  ],
+  "weights": [
+    -0.0474015705573535,
+    -0.31902609783496544,
+    -0.5599538536363553,
+    -1.048862602198224,
+    -0.44297744389478466,
+    -1.3209911191307846,
+    1.0395962042807978,
+    0.3340238537906972,
+    0.49028224158912326,
+    -0.451795005853432,
+    0.1482729168500072
+  ],
+  "fitness": 9570.0,
+  "trainedAt": "2026-08-23T22:17:50Z",
+  "config": {
+    "population": 24,
+    "generations": 30,
+    "games": 2,
+    "piece_cap": 180,
+    "tournament_size": 4,
+    "elitism": 2,
+    "mutation_rate": 0.12,
+    "mutation_sigma": 0.25,
+    "seed": 11,
+    "smoke_test": false,
+    "out_dir": "output_long"
+  }
+}
