@@ -4,35 +4,56 @@ import { HumanControl } from "../engine/humanControl";
 import BoardCanvas from "./BoardCanvas";
 import SidePanel from "./SidePanel";
 
-const GRAVITY_MS = 700;
+const HANDLED_KEYS = new Set(["ArrowLeft", "ArrowRight", "ArrowDown", "ArrowUp", " ", "x", "z", "c", "Shift"]);
 
 export default function PlayMode() {
   const [, forceRender] = useState(0);
   const controlRef = useRef<HumanControl>(new HumanControl(new Game()));
   const [gameOver, setGameOver] = useState(false);
+  const gameOverRef = useRef(false);
 
   const rerender = () => forceRender((n) => n + 1);
 
   const newGame = () => {
     controlRef.current = new HumanControl(new Game());
+    gameOverRef.current = false;
     setGameOver(false);
     rerender();
   };
 
+  // Real-time gravity/lock-delay loop. Runs every animation frame and
+  // hands the actual elapsed time to advance(), rather than assuming a
+  // fixed interval -- this is what makes a piece resting on the floor
+  // actually lock after its grace period, even with no further input.
   useEffect(() => {
-    if (gameOver) return;
-    const interval = setInterval(() => {
-      const control = controlRef.current;
-      const locked = control.tick();
-      if (locked || control.game.gameOver) setGameOver(true);
-      rerender();
-    }, GRAVITY_MS);
-    return () => clearInterval(interval);
-  }, [gameOver]);
+    let raf = 0;
+    let last = performance.now();
+    const loop = (now: number) => {
+      const delta = now - last;
+      last = now;
+      if (!gameOverRef.current) {
+        const control = controlRef.current;
+        const locked = control.advance(delta);
+        if (locked || control.game.gameOver) {
+          gameOverRef.current = true;
+          setGameOver(true);
+        }
+        rerender();
+      }
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (gameOver) return;
+      if (!HANDLED_KEYS.has(e.key)) return;
+      // Stop the browser from scrolling the page on arrow keys / space,
+      // without blocking any key that isn't actually used here.
+      e.preventDefault();
+      if (gameOverRef.current) return;
+
       const control = controlRef.current;
       switch (e.key) {
         case "ArrowLeft":
@@ -52,22 +73,22 @@ export default function PlayMode() {
           control.rotate(false);
           break;
         case " ":
-          e.preventDefault();
           control.hardDrop();
           break;
         case "c":
         case "Shift":
           control.hold();
           break;
-        default:
-          return;
       }
-      if (control.game.gameOver) setGameOver(true);
+      if (control.game.gameOver) {
+        gameOverRef.current = true;
+        setGameOver(true);
+      }
       rerender();
     };
-    window.addEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, { passive: false });
     return () => window.removeEventListener("keydown", onKey);
-  }, [gameOver]);
+  }, []);
 
   const control = controlRef.current;
   const game = control.game;

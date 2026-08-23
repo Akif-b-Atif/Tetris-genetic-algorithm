@@ -20,6 +20,15 @@ interface Props {
 export default function BoardCanvas({ board, active, cellSize = 26 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  // board.grid is mutated in place as the game progresses, so the Board
+  // instance itself never changes identity between renders. Deriving a
+  // cheap content signature (instead of depending on `board` directly)
+  // is what makes this effect actually re-run every time a piece locks
+  // or clears lines -- otherwise the canvas would silently stop
+  // updating after the first draw, which is exactly what happened when
+  // this only depended on object identity.
+  const gridSignature = board.grid.map((row) => row.join("")).join("|");
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -75,7 +84,7 @@ export default function BoardCanvas({ board, active, cellSize = 26 }: Props) {
         drawCell(active.col + dc, active.row + dr - BUFFER_ROWS, color, 1);
       }
     }
-  }, [board, active, cellSize]);
+  }, [gridSignature, active, cellSize]);
 
   return (
     <canvas
