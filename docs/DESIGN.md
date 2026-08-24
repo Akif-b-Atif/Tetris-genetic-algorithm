@@ -30,7 +30,7 @@ share nothing at runtime — the only thing that crosses the boundary is a JSON 
 weight vector and a per-generation fitness history.
 
 This mirrors how the same problem is usually approached in practice: train somewhere unconstrained
-by a browser's execution model, then ship a lightweight artifact (here, eleven numbers) that a
+by a browser's execution model, then ship a lightweight artifact (here, twelve numbers) that a
 much simpler runtime can use to make decisions instantly. It also means the web app has no
 server-side dependency — it's a static site that happens to know how to play Tetris well, because
 someone ran a training job once and committed the result.
@@ -118,7 +118,7 @@ of the current and next piece together) is a natural next step but isn't impleme
 
 ## Finding the weights
 
-An **individual** in the genetic algorithm is nothing more than the weight vector above — eleven
+An **individual** in the genetic algorithm is nothing more than the weight vector above — twelve
 floating-point numbers. Its **fitness** is the real, Guideline-accurate score it earns playing one
 or more full games with the search described above — the same number shown as "Score" in the web
 app, including line clears, back-to-back bonuses, combo bonuses, and drop bonuses. Fitness is
