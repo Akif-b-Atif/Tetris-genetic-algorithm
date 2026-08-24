@@ -26,4 +26,13 @@ describe("HumanControl lock delay", () => {
     expect(locked).toBe(false);
     expect(control.game.piecesPlaced).toBe(0);
   });
+
+  it("advance()'s 'locked' return does not itself mean the game is over -- ordinary locks must not falsely end the game", () => {
+    const control = new HumanControl(new Game(11));
+    for (let i = 0; i < 5; i++) {
+      control.hardDrop();
+      expect(control.game.gameOver).toBe(false);
+    }
+    expect(control.game.piecesPlaced).toBe(5);
+  });
 });

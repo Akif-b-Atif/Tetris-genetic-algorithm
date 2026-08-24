@@ -33,8 +33,8 @@ export default function PlayMode() {
       last = now;
       if (!gameOverRef.current) {
         const control = controlRef.current;
-        const locked = control.advance(delta);
-        if (locked || control.game.gameOver) {
+        control.advance(delta);
+        if (control.game.gameOver) {
           gameOverRef.current = true;
           setGameOver(true);
         }
