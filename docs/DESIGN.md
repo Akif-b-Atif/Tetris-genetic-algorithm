@@ -54,10 +54,15 @@ it's reasoning about behaves identically to the board it will actually play on.
 - **Hold:** usable once per piece, matching the standard rule — you cannot hold, un-hold, and
   hold again on the same piece. The bot's search respects this exactly as a human player would be
   bound by it.
-- **Scoring:** single/double/triple/tetris line clears score on a non-linear curve (a tetris is
-  worth substantially more than four separate singles), plus a small combo bonus for consecutive
-  clearing placements. T-spin detection and back-to-back bonuses are not implemented; they're
-  natural extensions if you want to take this further.
+- **Scoring:** matches the Tetris Guideline at level 1 (no level-based multiplier, since neither
+  engine implements level progression): single/double/triple/tetris line clears score
+  100/300/500/800, a tetris immediately following another tetris scores 1.5x
+  (back-to-back), consecutive line-clearing placements add a combo bonus, and both a manual soft
+  drop (1 point/cell) and a hard drop (2 points/cell) score based on the distance actually
+  covered by that action — a piece that lands purely from gravity earns no drop bonus, matching
+  the real rules. T-spin detection and its associated bonus are not implemented; that's the one
+  piece of Guideline scoring missing here; the reference values above are the ones in
+  [Tetris Wiki's scoring article](https://tetris.wiki/Scoring).
 - **Lock delay:** implemented for human play, where it matters for feel. The bot never uses it —
   it computes a target final placement and hard-drops directly into it, so a grace period to
   adjust after landing is irrelevant to how it decides anything.
@@ -66,19 +71,28 @@ it's reasoning about behaves identically to the board it will actually play on.
 
 Everything the bot reasons about comes from a candidate resulting board: "if I placed this piece
 here, in this rotation, what would the board look like, and how good is that?" That board is
-reduced to seven numeric features:
+reduced to eight numeric features:
 
 | Feature | Definition |
 |---|---|
 | Aggregate height | Sum of every column's height |
 | Max height | Height of the tallest column |
 | Bumpiness | Sum of absolute height differences between adjacent columns |
+| Height variance | Population variance of column heights |
 | Holes | Empty cells with at least one filled cell above them in the same column |
 | Row transitions | Filled/empty transitions scanned across each row, walls counted as filled |
 | Column transitions | Same idea, scanned down each column |
 | Well sum | Total depth of columns sitting notably lower than both neighbors |
 
-Line clears are handled separately, and deliberately not as an eighth feature. A single linear
+Height variance earns its place alongside bumpiness rather than being redundant with it: bumpiness
+only looks at *adjacent* column differences, so a board that slopes gradually from tall on one
+side to completely empty on the other — pillars built up on one half of the field while the other
+sits untouched — can keep bumpiness low, since each individual step between neighboring columns is
+small, even though the board as a whole is badly lopsided. Variance measures that global imbalance
+directly regardless of how gradual the slope is, and it was added specifically because an early
+evolved bot exhibited exactly this one-sided pillar-building pattern with bumpiness alone.
+
+Line clears are handled separately, and deliberately not as a ninth feature. A single linear
 weight on a 0–4 "lines cleared" count could never express that a four-line clear is worth more
 than four times a one-line clear — that's what "linear" means. Instead, clearing exactly one,
 two, three, or four lines is one-hot encoded as four independent boolean features
@@ -105,21 +119,24 @@ of the current and next piece together) is a natural next step but isn't impleme
 ## Finding the weights
 
 An **individual** in the genetic algorithm is nothing more than the weight vector above — eleven
-floating-point numbers. Its **fitness** comes from actually having it play one or more full games
-with the search described above, and scoring the outcome:
+floating-point numbers. Its **fitness** is the real, Guideline-accurate score it earns playing one
+or more full games with the search described above — the same number shown as "Score" in the web
+app, including line clears, back-to-back bonuses, combo bonuses, and drop bonuses. Fitness is
+deliberately not a separate hand-tuned proxy: the stated goal is a bot that scores as highly as
+possible at real Tetris, so the training signal is exactly that score, not an approximation of it
+that could pull evolution toward a subtly different objective (for instance, over-valuing tetrises
+relative to what they're actually worth, and ending up with a bot that's excellent at maximizing
+an artificial reward but not at maximizing the real thing).
 
-```
-fitness = singles * 40 + doubles * 100 + triples * 300 + tetrises * 1200
-        + pieces_placed * 1
-        - topped_out_penalty
-```
-
-The tetris term is set well above four times the single term, so that "clearing four lines at
-once is disproportionately good" is encoded twice, independently — once inside the per-move
-evaluation function above, and again in how the training process judges an entire game. Because
-Tetris involves real randomness, a single game is a noisy signal; each individual plays multiple
-games per generation and its fitness is averaged, and games are capped at a fixed piece count so
-one exceptionally long-lived individual can't stall an entire generation.
+Because Tetris involves real randomness, a single game is a noisy signal; each individual plays
+multiple games per generation and its fitness is averaged, and games are capped at a fixed piece
+count so one exceptionally long-lived individual can't stall an entire generation. Note that
+topping out isn't given an extra fitness penalty beyond the score itself — it doesn't need one,
+since a game that ends early simply stops accumulating score, which already prices in the cost of
+dying. Likewise there's no separate per-piece survival bonus: real score already grows with every
+piece placed (via the hard-drop bonus alone, before any line is even cleared), so even a
+completely incompetent early individual's games carry a usable gradient for selection, rather than
+tying at zero.
 
 Each generation: the fittest individuals are carried forward unchanged (elitism, so the best
 result found is never lost to an unlucky crossover); the rest of the next generation is produced

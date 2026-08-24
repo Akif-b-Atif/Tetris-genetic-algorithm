@@ -4,6 +4,7 @@ export interface Features {
   aggregateHeight: number;
   maxHeight: number;
   bumpiness: number;
+  heightVariance: number;
   holes: number;
   rowTransitions: number;
   columnTransitions: number;
@@ -14,6 +15,7 @@ export const FEATURE_NAMES = [
   "aggregate_height",
   "max_height",
   "bumpiness",
+  "height_variance",
   "holes",
   "row_transitions",
   "column_transitions",
@@ -21,7 +23,16 @@ export const FEATURE_NAMES = [
 ] as const;
 
 export function featuresAsVector(f: Features): number[] {
-  return [f.aggregateHeight, f.maxHeight, f.bumpiness, f.holes, f.rowTransitions, f.columnTransitions, f.wellSum];
+  return [
+    f.aggregateHeight,
+    f.maxHeight,
+    f.bumpiness,
+    f.heightVariance,
+    f.holes,
+    f.rowTransitions,
+    f.columnTransitions,
+    f.wellSum,
+  ];
 }
 
 export function extractFeatures(board: Board): Features {
@@ -30,6 +41,16 @@ export function extractFeatures(board: Board): Features {
   const maxHeight = Math.max(...heights);
   let bumpiness = 0;
   for (let i = 0; i < WIDTH - 1; i++) bumpiness += Math.abs(heights[i] - heights[i + 1]);
+
+  // Population variance of column heights. Distinct from bumpiness:
+  // bumpiness only sees adjacent-column differences, so a board that
+  // slopes gradually from tall on one side to empty on the other (a
+  // "leaning tower" or pillars-on-one-side pattern) can rack up a low
+  // bumpiness score, since each individual step is small, even though
+  // the board as a whole is badly lopsided. Variance measures that
+  // global imbalance directly.
+  const meanHeight = heights.reduce((a, b) => a + b, 0) / WIDTH;
+  const heightVariance = heights.reduce((acc, h) => acc + (h - meanHeight) ** 2, 0) / WIDTH;
 
   let holes = 0;
   for (let c = 0; c < WIDTH; c++) {
@@ -70,5 +91,5 @@ export function extractFeatures(board: Board): Features {
     if (depth > 0) wellSum += depth;
   }
 
-  return { aggregateHeight, maxHeight, bumpiness, holes, rowTransitions, columnTransitions, wellSum };
+  return { aggregateHeight, maxHeight, bumpiness, heightVariance, holes, rowTransitions, columnTransitions, wellSum };
 }

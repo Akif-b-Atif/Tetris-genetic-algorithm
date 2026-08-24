@@ -73,18 +73,18 @@ def play_game(weights, rng_seed, piece_cap) -> dict:
 
 
 def fitness_of(weights, config: GAConfig, generation_seed: int) -> float:
+    """Fitness is the real, Guideline-accurate game score (line clears,
+    back-to-back, combo, and drop bonuses -- see engine/game.py),
+    averaged over multiple games to smooth out piece-order luck. This
+    is deliberately the same number shown as "Score" in the web app:
+    the stated goal is a bot that scores as highly as possible at real
+    Tetris, so the fitness function optimizes exactly that, rather
+    than a hand-tuned proxy that could pull evolution toward a
+    different, only-approximately-related objective."""
     total = 0.0
     for g in range(config.games_per_individual):
         result = play_game(weights, generation_seed * 1000 + g, config.piece_cap)
-        game_fitness = (
-            result["singles"] * 40
-            + result["doubles"] * 100
-            + result["triples"] * 300
-            + result["tetrises"] * 1200
-            + result["pieces_placed"] * 1.0
-            - (300 if result["topped_out"] else 0)
-        )
-        total += game_fitness
+        total += result["score"]
     return total / config.games_per_individual
 
 

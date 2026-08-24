@@ -63,7 +63,7 @@ export default function PlayMode() {
           control.moveRight();
           break;
         case "ArrowDown":
-          control.softDrop();
+          control.manualSoftDrop();
           break;
         case "ArrowUp":
         case "x":

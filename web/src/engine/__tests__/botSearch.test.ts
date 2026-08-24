@@ -4,7 +4,7 @@ import { findBestMove } from "../../bot/search";
 
 describe("bot search over a full game", () => {
   it("places many pieces and the board actually accumulates filled cells", () => {
-    const weights = [-0.5, -0.4, -0.3, -0.8, -0.2, -0.2, 0.1, 1, 2, 4, 10];
+    const weights = [-0.5, -0.4, -0.3, -0.3, -0.8, -0.2, -0.2, 0.1, 1, 2, 4, 10];
     const game = new Game(3, 120);
     let steps = 0;
     while (!game.gameOver && steps < 120) {

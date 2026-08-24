@@ -99,10 +99,10 @@ export class HumanControl {
     }
   }
 
-  /** Manual soft drop (holding the down key). Moves one row if legal;
-   * does nothing else special -- gravity/lock timing is handled by
-   * advance(). Returns whether it actually moved. */
-  softDrop(): boolean {
+  /** Internal: move down one row if legal. Used by both automatic
+   * gravity and manual soft drop -- scoring for the latter is handled
+   * by the caller, since natural gravity movement earns no points. */
+  private moveDownIfLegal(): boolean {
     if (!this.collidesNow(this.col, this.row + 1, this.state)) {
       this.row += 1;
       this.gravityAcc = 0;
@@ -113,13 +113,29 @@ export class HumanControl {
     return false;
   }
 
+  /** Automatic gravity tick. No score awarded, matching real Tetris --
+   * only a player-initiated soft or hard drop earns drop points. */
+  private softDrop(): boolean {
+    return this.moveDownIfLegal();
+  }
+
+  /** Player pressing the soft-drop key. Identical movement to the
+   * automatic gravity tick, but awards 1 point per cell per the
+   * Guideline's soft-drop scoring. */
+  manualSoftDrop(): boolean {
+    const moved = this.moveDownIfLegal();
+    if (moved) this.game.score += 1;
+    return moved;
+  }
+
   ghostRow(): number {
     return this.game.board.hardDropRow(this.game.current, this.state, this.col, this.row);
   }
 
   hardDrop() {
+    const startRow = this.row;
     this.row = this.ghostRow();
-    this.lock();
+    this.lock(Math.max(0, this.row - startRow));
   }
 
   hold() {
@@ -135,7 +151,10 @@ export class HumanControl {
     if (this.isOnGround()) {
       this.lockAcc += deltaMs;
       if (this.lockAcc >= this.lockDelayMs) {
-        return this.lock();
+        // A lock triggered by the grace period running out, not by an
+        // explicit hard drop, earns no drop bonus -- matches ordinary
+        // gravity-driven landing in real Tetris.
+        return this.lock(0);
       }
     } else {
       this.gravityAcc += deltaMs;
@@ -147,8 +166,8 @@ export class HumanControl {
     return false;
   }
 
-  private lock(): boolean {
-    this.game.apply({ state: this.state, col: this.col, useHold: false });
+  private lock(hardDropCells: number): boolean {
+    this.game.apply({ state: this.state, col: this.col, useHold: false, hardDropCells });
     this.resetForCurrentPiece();
     return true;
   }

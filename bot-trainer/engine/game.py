@@ -6,6 +6,7 @@ concepts only matter for a human-playable UI, not for this engine.
 """
 
 from dataclasses import dataclass, field
+from typing import Optional
 
 from .board import Board, BUFFER_ROWS, WIDTH
 from .bag import SevenBag
@@ -20,10 +21,15 @@ LINE_SCORE = {0: 0, 1: 100, 2: 300, 3: 500, 4: 800}
 class Placement:
     """A fully-specified move: rotate the current (or held) piece to
     `state` and drop it at `col`. `use_hold` swaps the held piece in
-    before placing."""
+    before placing. `hard_drop_cells`, if given, is the drop distance
+    (in cells, 2 points each) to credit -- omit it to default to the
+    full spawn-to-landing distance, which is correct here since this
+    engine is only ever driven by the bot, which always conceptually
+    hard-drops immediately on spawn (see docs/DESIGN.md)."""
     state: int
     col: int
     use_hold: bool = False
+    hard_drop_cells: Optional[int] = None
 
 
 @dataclass
@@ -49,6 +55,7 @@ class Game:
         self.lines_cleared_total = 0
         self.pieces_placed = 0
         self.combo = -1
+        self.back_to_back = False
         self.game_over = False
         self.piece_cap = piece_cap
 
@@ -92,12 +99,31 @@ class Game:
 
         self.pieces_placed += 1
         self.lines_cleared_total += cleared
-        self.score += LINE_SCORE[cleared]
+
+        # Line-clear score, with the Guideline's back-to-back bonus: a
+        # tetris immediately following another tetris scores 1.5x. A
+        # non-clearing placement doesn't break back-to-back status;
+        # only clearing 1-3 lines ("a normal clear") does.
+        line_score = LINE_SCORE[cleared]
+        if cleared == 4:
+            if self.back_to_back:
+                line_score = int(line_score * 1.5)
+            self.back_to_back = True
+        elif cleared > 0:
+            self.back_to_back = False
+        self.score += line_score
+
         if cleared > 0:
             self.combo += 1
             self.score += max(0, self.combo) * 50
         else:
             self.combo = -1
+
+        # Hard-drop bonus: 2 points per cell of drop distance. Defaults
+        # to the full spawn-to-landing distance when not specified.
+        full_distance = drop_row - pos.row
+        hard_drop_cells = placement.hard_drop_cells if placement.hard_drop_cells is not None else full_distance
+        self.score += max(0, hard_drop_cells) * 2
 
         self.current = self.queue.pop(0)
         self._refill_queue()

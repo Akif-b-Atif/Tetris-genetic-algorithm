@@ -16,6 +16,7 @@ _SIGN_BIAS = {
     "aggregate_height": -1,
     "max_height": -1,
     "bumpiness": -1,
+    "height_variance": -1,
     "holes": -1,
     "row_transitions": -1,
     "column_transitions": -1,

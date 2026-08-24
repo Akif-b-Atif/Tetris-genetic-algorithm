@@ -15,10 +15,21 @@ WEIGHT_NAMES = FEATURE_NAMES + CLEAR_NAMES
 
 
 def evaluate(features, lines_cleared: int, weights) -> float:
+    """Weights shorter than WEIGHT_NAMES (e.g. an older saved weight
+    vector from before a feature was added) are treated as 0 for any
+    missing trailing weight, so a stale file can't crash with an
+    out-of-bounds read. Note this only prevents a crash -- if a
+    feature was inserted in the middle of FEATURE_NAMES rather than
+    appended at the end, every weight from that point on will be
+    silently applied to the wrong feature, not just missing. Retrain
+    after any feature-set change."""
+    def w(i):
+        return weights[i] if i < len(weights) else 0.0
+
     score = 0.0
     fv = features.as_vector()
     for i, value in enumerate(fv):
-        score += weights[i] * value
+        score += w(i) * value
     if 1 <= lines_cleared <= 4:
-        score += weights[len(FEATURE_NAMES) + (lines_cleared - 1)]
+        score += w(len(FEATURE_NAMES) + (lines_cleared - 1))
     return score

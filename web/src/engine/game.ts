@@ -13,6 +13,13 @@ export interface Placement {
   state: number;
   col: number;
   useHold: boolean;
+  /** Cells of hard-drop bonus (2 pts/cell) to award for this placement.
+   * Omit to default to the full spawn-to-landing distance -- correct
+   * for the bot, which always conceptually hard-drops immediately on
+   * spawn. Interactive play passes an explicit smaller value for a
+   * real hard drop from wherever the piece currently sits, and 0 for
+   * an ordinary gravity-driven lock, which earns no drop bonus. */
+  hardDropCells?: number;
 }
 
 export interface StepResult {
@@ -33,6 +40,7 @@ export class Game {
   linesClearedTotal = 0;
   piecesPlaced = 0;
   combo = -1;
+  backToBack = false;
   gameOver = false;
   piecesLockedSinceStart: PieceId[] = [];
 
@@ -88,13 +96,33 @@ export class Game {
 
     this.piecesPlaced += 1;
     this.linesClearedTotal += cleared;
-    this.score += LINE_SCORE[cleared];
+
+    // Line-clear score, with the Guideline's back-to-back bonus: a
+    // tetris immediately following another tetris scores 1.5x. A
+    // non-clearing placement doesn't break back-to-back status; only
+    // clearing 1-3 lines ("a normal clear") does.
+    let lineScore = LINE_SCORE[cleared];
+    if (cleared === 4) {
+      if (this.backToBack) lineScore = Math.floor(lineScore * 1.5);
+      this.backToBack = true;
+    } else if (cleared > 0) {
+      this.backToBack = false;
+    }
+    this.score += lineScore;
+
     if (cleared > 0) {
       this.combo += 1;
       this.score += Math.max(0, this.combo) * 50;
     } else {
       this.combo = -1;
     }
+
+    // Hard-drop bonus: 2 points per cell of drop distance credited to
+    // this placement. Defaults to the full spawn-to-landing distance
+    // when the caller doesn't specify one (the bot's case).
+    const fullDistance = dropRow - pos.row;
+    const hardDropCells = placement.hardDropCells ?? fullDistance;
+    this.score += Math.max(0, hardDropCells) * 2;
 
     this.piecesLockedSinceStart.push(pieceId);
     this.current = this.queue.shift()!;

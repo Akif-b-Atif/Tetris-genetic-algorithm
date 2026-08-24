@@ -39,6 +39,46 @@ def test_bumpiness_flat_board_is_zero():
     print("test_bumpiness_flat_board_is_zero passed")
 
 
+def _set_column_height(board, col, height):
+    for r in range(TOTAL_ROWS - height, TOTAL_ROWS):
+        board.grid[r][col] = 1
+
+
+def test_height_variance_flat_board_is_zero():
+    board = Board()
+    for c in range(WIDTH):
+        _set_column_height(board, c, 5)
+    f = extract_features(board)
+    assert f.height_variance == 0, f"expected 0 variance on a flat board, got {f.height_variance}"
+    print("test_height_variance_flat_board_is_zero passed")
+
+
+def test_height_variance_matches_hand_computed_value():
+    # 9 columns at height 4, one column empty: mean = 3.6,
+    # variance = (9 * 0.4^2 + 1 * 3.6^2) / 10 = 14.4 / 10 = 1.44
+    board = Board()
+    for c in range(WIDTH - 1):
+        _set_column_height(board, c, 4)
+    f = extract_features(board)
+    expected = 1.44
+    assert abs(f.height_variance - expected) < 1e-9, f"expected variance {expected}, got {f.height_variance}"
+    print("test_height_variance_matches_hand_computed_value passed")
+
+
+def test_height_variance_catches_gradual_slope_that_bumpiness_understates():
+    # A one-sided, gradually-sloping "pillar" board: bumpiness only sees
+    # small step-to-step differences and stays low, but the board is
+    # still badly lopsided -- variance should be clearly high here.
+    board = Board()
+    heights = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
+    for c, h in enumerate(heights):
+        _set_column_height(board, c, h)
+    f = extract_features(board)
+    assert f.bumpiness == 9, f"expected bumpiness 9 for a uniform 1-per-column slope, got {f.bumpiness}"
+    assert f.height_variance > 8, f"expected clearly nonzero variance for a lopsided board, got {f.height_variance}"
+    print("test_height_variance_catches_gradual_slope_that_bumpiness_understates passed")
+
+
 def test_line_clear_collapses_rows():
     board = Board()
     bottom = TOTAL_ROWS - 1
@@ -56,7 +96,7 @@ def test_full_headless_game_runs_to_cap():
     from bot.search import find_best_move
     from engine.game import PIECE_INDEX
 
-    weights = [-0.5, -0.4, -0.3, -0.8, -0.2, -0.2, 0.1, 1, 2, 4, 10]
+    weights = [-0.5, -0.4, -0.3, -0.3, -0.8, -0.2, -0.2, 0.1, 1, 2, 4, 10]
     while not game.game_over:
         candidate = find_best_move(game, weights, lambda p: PIECE_INDEX[p])
         assert candidate is not None, "search should always find a legal placement on an empty-ish board"
@@ -68,6 +108,9 @@ def test_full_headless_game_runs_to_cap():
 if __name__ == "__main__":
     test_holes_count()
     test_bumpiness_flat_board_is_zero()
+    test_height_variance_flat_board_is_zero()
+    test_height_variance_matches_hand_computed_value()
+    test_height_variance_catches_gradual_slope_that_bumpiness_understates()
     test_line_clear_collapses_rows()
     test_full_headless_game_runs_to_cap()
     print("all tests passed")

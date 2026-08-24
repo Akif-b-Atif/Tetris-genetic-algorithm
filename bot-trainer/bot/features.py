@@ -13,6 +13,7 @@ class Features:
     aggregate_height: float
     max_height: float
     bumpiness: float
+    height_variance: float
     holes: float
     row_transitions: float
     column_transitions: float
@@ -23,6 +24,7 @@ class Features:
             self.aggregate_height,
             self.max_height,
             self.bumpiness,
+            self.height_variance,
             self.holes,
             self.row_transitions,
             self.column_transitions,
@@ -34,6 +36,7 @@ FEATURE_NAMES = [
     "aggregate_height",
     "max_height",
     "bumpiness",
+    "height_variance",
     "holes",
     "row_transitions",
     "column_transitions",
@@ -46,6 +49,16 @@ def extract_features(board) -> Features:
     aggregate_height = sum(heights)
     max_height = max(heights)
     bumpiness = sum(abs(heights[i] - heights[i + 1]) for i in range(WIDTH - 1))
+
+    # Population variance of column heights. Distinct from bumpiness:
+    # bumpiness only sees adjacent-column differences, so a board that
+    # slopes gradually from tall on one side to empty on the other (a
+    # "leaning tower" or pillars-on-one-side pattern) can rack up a low
+    # bumpiness score, since each individual step is small, even though
+    # the board as a whole is badly lopsided. Variance measures that
+    # global imbalance directly.
+    mean_height = sum(heights) / WIDTH
+    height_variance = sum((h - mean_height) ** 2 for h in heights) / WIDTH
 
     holes = 0
     for c in range(WIDTH):
@@ -89,6 +102,7 @@ def extract_features(board) -> Features:
         aggregate_height=aggregate_height,
         max_height=max_height,
         bumpiness=bumpiness,
+        height_variance=height_variance,
         holes=holes,
         row_transitions=row_transitions,
         column_transitions=column_transitions,
