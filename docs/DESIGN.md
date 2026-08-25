@@ -101,12 +101,53 @@ discover how disproportionate that reward should be rather than having it assume
 
 ## Turning features into a decision
 
-A candidate board's score is a plain weighted sum of its feature vector, plus whichever
+A candidate board's score is a weighted sum of its *normalized* feature vector, plus whichever
 line-clear weight applies:
 
 ```
-score = w0*aggregate_height + w1*max_height + ... + w6*well_sum + w_clear[lines_cleared]
+score = w0*(aggregate_height/scale0) + w1*(max_height/scale1) + ... + w_clear[lines_cleared]
 ```
+
+### Feature normalization
+
+Each board-shape feature is divided by a rough theoretical upper bound (derived from the board's
+own dimensions — see `FEATURE_SCALE` in `bot/evaluate.py` / `evaluate.ts`) before it's weighted.
+This exists to fix a real problem an earlier version of this project had: `aggregate_height`,
+`holes`, and the transition counts routinely reach into the tens or hundreds on a realistic board,
+while the one-hot line-clear features (`clear_single` … `clear_tetris`) are always exactly 0 or 1.
+The genetic algorithm's initial weights and mutation step size are the same absolute scale for
+every feature, regardless of the feature's own natural range (see `ga/individual.py`). Without
+normalization, that mismatch means a weight on a line-clear feature has vastly less real influence
+on which move actually gets picked than a weight of the same magnitude on a board-shape feature —
+line-clear weights end up drifting close to randomly across generations, since there's little
+fitness pressure keeping their sign or magnitude meaningful. Concretely: a training run without
+normalization produced a bot with a *negative* weight on `clear_tetris`, not because tetrises are
+actually bad, but because that weight was nearly irrelevant to which placement the search chose in
+the first place, so evolution had no real reason to correct it.
+
+Normalizing doesn't change what the evaluation function can express — it's a linear rescaling, and
+the function is linear — it changes what a given weight *means*, so that a weight of similar
+magnitude carries roughly comparable influence no matter which feature it's attached to. This is
+tracked with an explicit `FEATURE_SCALE_VERSION` string in both engines; a saved weight file whose
+version doesn't match the current one was tuned against a different scale entirely and needs
+retraining, not just reloading — the web app's Bot Match tab detects and flags this automatically.
+
+### A caveat worth knowing about: correlated features
+
+Several of the eight features overlap in what they actually measure. A board with more holes
+almost always has more column transitions too (each hole is itself a filled→empty→filled
+transition), and both tend to rise together with aggregate height. In a linear model, correlated
+inputs don't need to each carry their "intuitively correct" independent weight — the combination
+just needs to come out right. In practice this means an individual weight can land somewhere
+counterintuitive (say, a small or even positive weight on `aggregate_height`) without the overall
+evaluation function actually being broken, if a correlated feature like `holes` is already doing
+most of the real penalizing work. Normalization fixes the *scale* problem above, but it doesn't
+remove this correlation, and there's no single fix for it beyond either trimming the feature set to
+fewer, less-overlapping features, or simply not over-interpreting any one weight in isolation. This
+project keeps the full eight-feature set rather than trimming it, on the view that more information
+is generally still useful to a linear model even when some of it is redundant — but it's a
+legitimate design choice to make differently if you want more directly interpretable individual
+weights.
 
 For the current piece, the bot enumerates every legal final placement — every rotation state,
 every column, dropped straight down to its resting position using the same collision logic that
@@ -158,4 +199,10 @@ The weight table underneath is the actual evolved genome behind the bot in the B
 Watch how it plays a few games and the weights explain exactly why: a heavily negative weight on
 holes and column transitions produces a bot that avoids burying cells under overhangs even at the
 cost of a slightly taller stack elsewhere; a well-shaped weight on `well_sum` encourages it to
-keep a single column open rather than fill it in, waiting for a favorable piece.
+keep a single column open rather than fill it in, waiting for a favorable piece. Because every
+feature is normalized before weighting (see "Turning features into a decision" above), weights
+across different features are meant to be roughly comparable in magnitude — a weight of 2 on one
+feature and 0.2 on another is a real difference in how much each matters, not an artifact of one
+feature's raw values happening to be much larger. That said, a handful of these features overlap
+in what they measure (also covered above), so don't read too much into any single weight's exact
+sign or size in isolation from the others.

@@ -5,10 +5,12 @@ import { evaluate, WEIGHT_NAMES } from "../../bot/evaluate";
 
 // This board and the expected values below were produced by running
 // the equivalent construction through the Python engine
-// (bot-trainer/bot/features.py + evaluate.py) and copying its exact
-// printed output -- this is a real cross-language golden-value check,
-// not just "the code looks the same". If either engine's math ever
-// drifts, this test catches it.
+// (bot-trainer/bot/features.py + evaluate.py, feature-scale version
+// v2-normalized) and copying its exact printed output -- this is a
+// real cross-language golden-value check, not just "the code looks
+// the same". If either engine's math ever drifts, this test catches
+// it. Regenerate these expected values if FEATURE_SCALE_VERSION in
+// either engine ever changes.
 function setCol(board: Board, col: number, cellsFromBottom: number[]) {
   cellsFromBottom.forEach((v, i) => {
     if (v) board.grid[TOTAL_ROWS - 1 - i][col] = 1;
@@ -44,6 +46,6 @@ describe("cross-language parity (Python bot-trainer vs TS web)", () => {
     const weights = [0.1, -0.2, 0.15, -0.25, -0.9, -0.05, -0.07, 0.3, 1.0, 2.0, 4.0, 10.0];
     expect(WEIGHT_NAMES.length).toBe(weights.length);
     const score = evaluate(f, 2, weights);
-    expect(score).toBeCloseTo(3.167499999999999, 9);
+    expect(score).toBeCloseTo(1.97266875, 9);
   });
 });

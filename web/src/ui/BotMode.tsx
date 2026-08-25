@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Game } from "../engine/game";
 import { findBestMove, Candidate } from "../bot/search";
-import { WEIGHT_NAMES } from "../bot/evaluate";
+import { WEIGHT_NAMES, FEATURE_SCALE_VERSION } from "../bot/evaluate";
 import { featuresAsVector } from "../bot/features";
 import BoardCanvas from "./BoardCanvas";
 import SidePanel from "./SidePanel";
@@ -9,6 +9,7 @@ import Panel from "./Panel";
 
 interface WeightsFile {
   weightNames: string[];
+  featureScaleVersion?: string;
   weights: number[];
   fitness: number;
   trainedAt: string;
@@ -113,17 +114,34 @@ export default function BotMode() {
       </div>
       <SidePanel game={game} />
       <div style={{ width: 260, display: "flex", flexDirection: "column", gap: 12 }}>
-        {weightsFile && weightsFile.weights.length !== WEIGHT_NAMES.length && (
-          <Panel eyebrow="Stale weights file">
-            <p style={{ color: "var(--amber)", fontSize: 12, lineHeight: 1.6, margin: 0 }}>
-              This weight vector has {weightsFile.weights.length} values but the current feature
-              set expects {WEIGHT_NAMES.length}. It won't crash, but every weight from the point
-              of mismatch onward is now applied to the wrong feature (not just missing) --
-              retrain in <code>bot-trainer/</code> to get correct values for the current feature
-              set.
-            </p>
-          </Panel>
-        )}
+        {weightsFile && (() => {
+          const lengthMismatch = weightsFile.weights.length !== WEIGHT_NAMES.length;
+          const scaleMismatch = weightsFile.featureScaleVersion !== FEATURE_SCALE_VERSION;
+          if (!lengthMismatch && !scaleMismatch) return null;
+          return (
+            <Panel eyebrow="Stale weights file">
+              <p style={{ color: "var(--amber)", fontSize: 12, lineHeight: 1.6, margin: 0 }}>
+                {lengthMismatch && (
+                  <>
+                    This weight vector has {weightsFile.weights.length} values but the current
+                    feature set expects {WEIGHT_NAMES.length} -- every weight from the point of
+                    mismatch onward is now applied to the wrong feature, not just missing.{" "}
+                  </>
+                )}
+                {scaleMismatch && (
+                  <>
+                    This file predates feature normalization ({FEATURE_SCALE_VERSION}), so its
+                    weights were tuned against raw, unnormalized feature values and will produce
+                    very different (and likely much weaker) play under the current evaluation
+                    function.{" "}
+                  </>
+                )}
+                Retrain in <code>bot-trainer/</code> to get correct values for the current
+                feature set.
+              </p>
+            </Panel>
+          );
+        })()}
         <Panel eyebrow="Evolved weights" title={weightsFile ? `fitness ${weightsFile.fitness.toFixed(0)}` : "loading"}>
           {weightsFile && (
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
