@@ -1,0 +1,38 @@
+{
+  "weightNames": [
+    "aggregate_height",
+    "max_height",
+    "bumpiness",
+    "height_variance",
+    "holes",
+    "row_transitions",
+    "column_transitions",
+    "well_sum",
+    "clear_single",
+    "clear_double",
+    "clear_triple",
+    "clear_tetris"
+  ],
+  "generations": [
+    {
+      "generation": 0,
+      "bestFitness": 0,
+      "averageFitness": 0,
+      "worstFitness": 0,
+      "bestWeights": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}
