@@ -105,6 +105,37 @@ def test_full_headless_game_runs_to_cap():
     print("test_full_headless_game_runs_to_cap passed")
 
 
+def test_feature_normalization_brings_board_shape_features_to_comparable_scale():
+    """The whole point of normalization: a unit weight on any single
+    board-shape feature should contribute an amount of the same rough
+    order of magnitude as a unit weight on a line-clear feature (which
+    is always exactly 1), for a realistic board. Before normalization
+    this was off by roughly two orders of magnitude for features like
+    aggregate_height and holes, which is what left the genetic
+    algorithm with no real pressure to get line-clear weights right."""
+    from bot.evaluate import evaluate, WEIGHT_NAMES
+    from bot.features import FEATURE_NAMES
+
+    board = Board()
+    # A moderately built-up, moderately messy board -- not empty, not
+    # near top-out, representative of realistic mid-game play.
+    for c, h in enumerate([6, 5, 7, 4, 5, 6, 5, 4, 6, 5]):
+        _set_column_height(board, c, h)
+    board.grid[TOTAL_ROWS - 3][2] = 0  # punch one hole in
+
+    f = extract_features(board)
+
+    for i, name in enumerate(FEATURE_NAMES):
+        unit_weights = [0.0] * len(WEIGHT_NAMES)
+        unit_weights[i] = 1.0
+        contribution = evaluate(f, 0, unit_weights)
+        assert abs(contribution) < 5, (
+            f"unit weight on '{name}' contributed {contribution}, expected roughly comparable "
+            f"to a line-clear feature's max contribution of 1 -- normalization isn't working"
+        )
+    print("test_feature_normalization_brings_board_shape_features_to_comparable_scale passed")
+
+
 if __name__ == "__main__":
     test_holes_count()
     test_bumpiness_flat_board_is_zero()
@@ -113,4 +144,5 @@ if __name__ == "__main__":
     test_height_variance_catches_gradual_slope_that_bumpiness_understates()
     test_line_clear_collapses_rows()
     test_full_headless_game_runs_to_cap()
+    test_feature_normalization_brings_board_shape_features_to_comparable_scale()
     print("all tests passed")

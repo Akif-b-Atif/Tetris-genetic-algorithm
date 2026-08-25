@@ -17,7 +17,7 @@ import json
 import os
 import time
 
-from bot.evaluate import WEIGHT_NAMES
+from bot.evaluate import WEIGHT_NAMES, FEATURE_SCALE_VERSION
 from ga.trainer import GAConfig, run_training
 
 
@@ -73,6 +73,7 @@ def main():
     best = result["best"]
     weights_payload = {
         "weightNames": WEIGHT_NAMES,
+        "featureScaleVersion": FEATURE_SCALE_VERSION,
         "weights": best.weights,
         "fitness": best.fitness,
         "trainedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -80,6 +81,7 @@ def main():
     }
     history_payload = {
         "weightNames": WEIGHT_NAMES,
+        "featureScaleVersion": FEATURE_SCALE_VERSION,
         "generations": [
             {
                 "generation": s.generation,
