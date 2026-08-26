@@ -185,7 +185,15 @@ by tournament selection (sample a handful of individuals, take the fittest as a 
 crossover (each weight independently inherited from one parent or the other), and mutation
 (Gaussian noise on most weights, with a small chance of a larger jump to help escape local
 optima). Training stops after a fixed number of generations or once the best fitness plateaus for
-several generations in a row, whichever comes first.
+several generations in a row, whichever comes first -- both of those limits are optional, though:
+`train.py --generations 0 --plateau-patience 0` removes them entirely, and the loop keeps running
+until stopped from outside (`Ctrl+C`). This is a reasonable way to run training, precisely because
+of the elitism guarantee above and the live-output behaviour described in
+`bot-trainer/README.md#running-indefinitely`: since the best individual seen so far can only ever
+be replaced by something at least as fit, and both output files are rewritten after every
+generation rather than only at the end, stopping an indefinite run at an arbitrary moment always
+leaves you with a valid, complete result -- there's no notion of catching it "mid-write" or
+losing the best weights found by interrupting it.
 
 ### Where generation zero comes from
 

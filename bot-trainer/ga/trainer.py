@@ -6,6 +6,7 @@ generations until the weights converge on strong, stable play.
 See docs/DESIGN.md for the reasoning behind every default below.
 """
 
+import itertools
 import random
 from dataclasses import dataclass, field
 from typing import List, Optional
@@ -18,6 +19,10 @@ from .individual import Individual, NUM_WEIGHTS
 @dataclass
 class GAConfig:
     population_size: int = 24
+    # 0 (or a negative number) means "no generation cap" -- keep running
+    # generation after generation until the process is stopped, e.g.
+    # with Ctrl+C in the console (see train.py's --generations help and
+    # "Running indefinitely" in bot-trainer/README.md).
     generations: int = 15
     games_per_individual: int = 2
     piece_cap: int = 200
@@ -27,6 +32,9 @@ class GAConfig:
     mutation_sigma: float = 0.25
     big_mutation_rate: float = 0.02
     seed: Optional[int] = None
+    # 0 (or a negative number) means "no automatic plateau stop" -- run
+    # until the generation cap (below) is hit, or forever if that's also
+    # disabled, until something external (Ctrl+C) stops it.
     plateau_patience: int = 6
     init_weights: Optional[List[float]] = None
 
@@ -138,7 +146,15 @@ def run_training(config: GAConfig, on_generation=None) -> dict:
     current one, in case fitness has since regressed). train.py uses
     this to write best_weights.json / training_history.json out after
     every generation instead of only once at the end -- see its
-    "Live output" note in bot-trainer/README.md."""
+    "Live output" note in bot-trainer/README.md.
+
+    config.generations <= 0 means "no cap": the loop below runs
+    generation after generation indefinitely (via itertools.count)
+    rather than a bounded range, and the only way to stop it is
+    externally -- e.g. the caller catching KeyboardInterrupt, as
+    train.py does for Ctrl+C. Since results are written out after every
+    generation regardless, an indefinite run can be interrupted at any
+    point without losing anything but the in-progress generation."""
     rng = random.Random(config.seed)
     population = seed_population(config, rng)
 
@@ -147,7 +163,12 @@ def run_training(config: GAConfig, on_generation=None) -> dict:
     plateau_count = 0
     last_best = None
 
-    for gen in range(1, config.generations + 1):
+    gen_iter = (
+        itertools.count(1) if config.generations is None or config.generations <= 0
+        else range(1, config.generations + 1)
+    )
+
+    for gen in gen_iter:
         gen_seed = rng.randint(0, 1_000_000) if config.seed is None else config.seed + gen
         for ind in population:
             ind.fitness = fitness_of(ind.weights, config, gen_seed)
@@ -169,13 +190,17 @@ def run_training(config: GAConfig, on_generation=None) -> dict:
         if on_generation:
             on_generation(stats, best_ever)
 
-        if last_best is not None and stats.best_fitness <= last_best + 1e-6:
-            plateau_count += 1
-        else:
-            plateau_count = 0
-        last_best = stats.best_fitness
-        if plateau_count >= config.plateau_patience:
-            break
+        # plateau_patience <= 0 disables this check entirely, so a run
+        # can only end via the generation cap above or an external stop
+        # (Ctrl+C) -- see the comment on GAConfig.plateau_patience.
+        if config.plateau_patience and config.plateau_patience > 0:
+            if last_best is not None and stats.best_fitness <= last_best + 1e-6:
+                plateau_count += 1
+            else:
+                plateau_count = 0
+            last_best = stats.best_fitness
+            if plateau_count >= config.plateau_patience:
+                break
 
         next_gen = [ind.clone() for ind in population[: config.elitism_count]]
         while len(next_gen) < config.population_size:

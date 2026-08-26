@@ -46,6 +46,16 @@ to confirm the pipeline works before committing to a longer run. See
 Both output files are rewritten after every generation, not just once at the end — see ["Live
 output"](bot-trainer/README.md#live-output) in `bot-trainer/README.md`.
 
+Instead of a fixed generation count, you can also let a run go until you stop it yourself:
+
+```bash
+python train.py --generations 0 --plateau-patience 0
+```
+
+`Ctrl+C` in the console then stops it cleanly at any point, with the two output files already
+holding the best result found so far. See ["Running
+indefinitely"](bot-trainer/README.md#running-indefinitely) in `bot-trainer/README.md`.
+
 By default every run starts from a random population. To seed training from an existing weight
 vector instead — e.g. to keep evolving a previous run's result rather than starting over — pass
 `--init-weights`:

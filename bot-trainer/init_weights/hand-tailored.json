@@ -1,0 +1,30 @@
+{
+  "weightNames": [
+    "aggregate_height",
+    "max_height",
+    "bumpiness",
+    "height_variance",
+    "holes",
+    "row_transitions",
+    "column_transitions",
+    "well_sum",
+    "clear_single",
+    "clear_double",
+    "clear_triple",
+    "clear_tetris"
+  ],
+  "weights": [
+    -1.74,
+    -0.43,
+    -0.32,
+    -0.93,
+    -2.25,
+    -0.12,
+    -0.83,
+    -0.18,
+    -0.10,
+    1.34,
+    1.25,
+    2.23
+  ]
+}

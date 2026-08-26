@@ -34,19 +34,21 @@ python train.py --smoke-test
 | Flag | Default | Meaning |
 |---|---|---|
 | `--population` | 24 | Individuals per generation |
-| `--generations` | 15 | Maximum generations to run |
+| `--generations` | 15 | Maximum generations to run. `0` (or negative) means no cap — see "Running indefinitely" below |
 | `--games` | 2 | Games played per individual, per generation (averaged for a less noisy fitness signal) |
 | `--piece-cap` | 200 | Pieces placed before a game is cut off, win or lose |
 | `--tournament-size` | 4 | Contenders sampled per tournament-selection draw |
 | `--elitism` | 2 | Top individuals carried unchanged into the next generation |
 | `--mutation-rate` | 0.12 | Chance any given weight is mutated in a child |
 | `--mutation-sigma` | 0.25 | Standard deviation of the Gaussian noise added on mutation |
+| `--plateau-patience` | 6 | Stop early if the best fitness doesn't improve for this many generations in a row. `0` (or negative) disables this — see "Running indefinitely" below |
 | `--seed` | none | Fix the RNG seed for a reproducible run |
 | `--init-weights [PATH]` | none (random population) | Seed generation zero from a saved weight vector instead of starting from scratch — see below |
 | `--out-dir` | `output` | Where the two JSON files are written |
 
-Training stops early if the best fitness in the population plateaus for several generations in a
-row — see `plateau_patience` in `ga/trainer.py` if you want to change that patience.
+By default a run can end two ways before reaching `--generations`: the best fitness plateaus for
+`--plateau-patience` generations in a row (see `ga/trainer.py`), or, if you've set `--generations
+0`, only by you stopping it — see the next two sections.
 
 ## Live output
 
@@ -59,9 +61,37 @@ just once at the end — `best_weights.json` always holds the fittest individual
   waiting for it to finish.
 - Killing a run early (`Ctrl+C`, a crash, running out of time) never loses progress — whatever
   was written after the last completed generation is a valid, complete pair of output files on
-  its own.
+  its own. See "Running indefinitely" just below for the intended way to do this deliberately.
 - Each write replaces the previous file atomically (write to a temp file, then rename over the
   target), so a reader polling the output directory mid-run never sees a half-written file.
+
+## Running indefinitely
+
+Pass `--generations 0` (or any negative number) to remove the generation cap entirely. The run
+then keeps going — playing games, evaluating fitness, breeding the next generation — for as long
+as you let it, with no built-in end point:
+
+```bash
+python train.py --generations 0
+```
+
+Press `Ctrl+C` in the console whenever you want to stop. `train.py` catches that (`KeyboardInterrupt`)
+and shuts down cleanly instead of printing a stack trace — it prints how many generations
+completed and confirms the two output files already reflect that final state (see "Live output"
+above; nothing extra needs to be saved at that point, since every generation's results were
+already written to disk as it finished). The only work lost is whatever partial generation was
+in progress at the moment you hit `Ctrl+C`.
+
+Note that `--plateau-patience` still defaults to `6`, so an unlimited run will, by default, stop
+itself automatically once fitness stalls for 6 generations rather than truly running forever. To
+disable that too and rely purely on `Ctrl+C`:
+
+```bash
+python train.py --generations 0 --plateau-patience 0
+```
+
+`train.py` prints a one-line reminder of which of these applies at the start of any run with
+`--generations 0`.
 
 ## Starting training from existing weights
 
@@ -117,13 +147,17 @@ rather than always starting over.
 ```bash
 python tests/test_engine.py
 python tests/test_init_weights.py
+python tests/test_trainer.py
 ```
 
 `test_engine.py` is a small set of assertion-based checks against hand-built board states (a
 board with exactly one known hole should report `holes == 1`, and so on), plus one full headless
 game run through the search and applied end to end. `test_init_weights.py` covers the
 `--init-weights` file loading: the default template, the named and bare-list formats, and how
-short/long/reordered weight vectors are reconciled. No test framework is required for either.
+short/long/reordered weight vectors are reconciled. `test_trainer.py` covers the generation loop's
+stopping conditions: the plain generation cap, the plateau-based early stop, and the
+`--generations 0` / `--plateau-patience 0` unlimited mode. No test framework is required for any
+of them.
 
 ## Layout
 
@@ -144,4 +178,7 @@ generations is on the order of a few thousand simulated games. This is pure-Pyth
 single-threaded by design (see the root design doc for why Python was chosen for this half of the
 project at all); if you want to scale up population size or generation count substantially,
 parallelizing fitness evaluation across processes (each individual's games are fully independent)
-is the natural next step.
+is the natural next step. This also means an unlimited (`--generations 0`) run has no runaway-memory
+concern to worry about beyond `training_history.json` growing by one entry per generation on
+disk — it's the CPU time that accumulates, not memory, so leaving one running overnight and
+stopping it with `Ctrl+C` in the morning is a reasonable way to use it.
