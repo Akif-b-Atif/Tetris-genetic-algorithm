@@ -43,6 +43,22 @@ cp output/best_weights.json output/training_history.json ../web/public/data/
 to confirm the pipeline works before committing to a longer run. See
 [`bot-trainer/README.md`](bot-trainer/README.md) for every tunable parameter.
 
+Both output files are rewritten after every generation, not just once at the end — see ["Live
+output"](bot-trainer/README.md#live-output) in `bot-trainer/README.md`.
+
+By default every run starts from a random population. To seed training from an existing weight
+vector instead — e.g. to keep evolving a previous run's result rather than starting over — pass
+`--init-weights`:
+
+```bash
+python train.py --init-weights                           # use bot-trainer/init_weights/default.json
+python train.py --init-weights output/best_weights.json  # continue a previous run
+```
+
+See ["Starting training from existing
+weights"](bot-trainer/README.md#starting-training-from-existing-weights) in
+`bot-trainer/README.md` for the file format and how seeding interacts with mutation.
+
 ## Repository layout
 
 ```

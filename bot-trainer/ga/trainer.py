@@ -28,6 +28,7 @@ class GAConfig:
     big_mutation_rate: float = 0.02
     seed: Optional[int] = None
     plateau_patience: int = 6
+    init_weights: Optional[List[float]] = None
 
 
 @dataclass
@@ -109,9 +110,37 @@ def mutate(ind: Individual, config: GAConfig, rng: random.Random) -> Individual:
     return Individual(weights=weights)
 
 
+def seed_population(config: GAConfig, rng: random.Random) -> List[Individual]:
+    """Builds generation zero. With no init_weights, every individual is
+    fully random (the original behaviour). With init_weights set, the
+    supplied vector is kept exactly (unmutated) as one individual --
+    guaranteeing the run never does worse than its starting point once
+    elitism kicks in -- and the rest of the population is filled with
+    mutated copies of it, so evolution explores outward from those
+    parameters instead of from scratch. This is what lets a run "start
+    with those parameters and then tweak them as needed" (see the
+    --init-weights option in train.py / bot-trainer/README.md)."""
+    if config.init_weights is None:
+        return [Individual.random(rng) for _ in range(config.population_size)]
+
+    seed = Individual.seeded(config.init_weights)
+    population = [seed.clone()]
+    while len(population) < config.population_size:
+        population.append(mutate(seed, config, rng))
+    return population
+
+
 def run_training(config: GAConfig, on_generation=None) -> dict:
+    """Runs the full generation loop. If on_generation is given, it's
+    called as on_generation(stats, best_ever) after every completed
+    generation -- stats for that generation alone, and best_ever the
+    fittest individual seen across all generations so far (not just the
+    current one, in case fitness has since regressed). train.py uses
+    this to write best_weights.json / training_history.json out after
+    every generation instead of only once at the end -- see its
+    "Live output" note in bot-trainer/README.md."""
     rng = random.Random(config.seed)
-    population = [Individual.random(rng) for _ in range(config.population_size)]
+    population = seed_population(config, rng)
 
     history: List[GenerationStats] = []
     best_ever: Optional[Individual] = None
@@ -133,11 +162,12 @@ def run_training(config: GAConfig, on_generation=None) -> dict:
             best_weights=population[0].weights[:],
         )
         history.append(stats)
-        if on_generation:
-            on_generation(stats)
 
         if best_ever is None or population[0].fitness > best_ever.fitness:
             best_ever = population[0].clone()
+
+        if on_generation:
+            on_generation(stats, best_ever)
 
         if last_best is not None and stats.best_fitness <= last_best + 1e-6:
             plateau_count += 1

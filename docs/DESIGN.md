@@ -187,6 +187,26 @@ crossover (each weight independently inherited from one parent or the other), an
 optima). Training stops after a fixed number of generations or once the best fitness plateaus for
 several generations in a row, whichever comes first.
 
+### Where generation zero comes from
+
+By default, generation zero — the population a run starts from before any selection has
+happened — is fully random, biased only by the rough signs in `_SIGN_BIAS` (§ga/individual.py)
+that nudge things like `holes` toward starting negative rather than wasting early generations
+discovering the obvious. This is "training from scratch": every run is independent, and nothing
+about a previous run's result carries over unless you copy it into `web/public/data/` at the end.
+
+`train.py --init-weights` offers an alternative starting point: rather than randomizing every
+individual, one individual in generation zero is set to *exactly* a weight vector you supply (a
+previous run's `best_weights.json`, or a hand-edited file), and the rest of the population is
+filled with mutated copies of it. Selection, crossover, and mutation all proceed completely
+unchanged from there — the seeded individual is just another individual in the population, kept
+around only by ordinary elitism, and it wins in later generations only if nothing outperforms it.
+Concretely this means a seeded run can't do *worse* than its starting weights (elitism guarantees
+the best-seen individual, which starts out being the seed, is never lost), while still leaving the
+GA completely free to move away from them if a mutated variant proves stronger. This is useful for
+picking up where a previous run left off, or for starting from a hand-designed guess at good
+weights rather than a random one. See `bot-trainer/README.md` for the file format and CLI usage.
+
 ## Reading the training lab tab
 
 The fitness-over-generations chart plots both the best individual per generation and the

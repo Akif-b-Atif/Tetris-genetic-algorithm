@@ -20,8 +20,8 @@ python train.py
 
 With no arguments this runs a moderate default session (24 individuals, up to 15 generations, 2
 games per individual per generation) and writes `output/best_weights.json` and
-`output/training_history.json`. Copy both into `web/public/data/` to update what the web app
-plays with and displays.
+`output/training_history.json`, updated after every generation (see "Live output" below). Copy
+both into `web/public/data/` to update what the web app plays with and displays.
 
 To verify the pipeline works end-to-end before committing to a long run:
 
@@ -42,29 +42,98 @@ python train.py --smoke-test
 | `--mutation-rate` | 0.12 | Chance any given weight is mutated in a child |
 | `--mutation-sigma` | 0.25 | Standard deviation of the Gaussian noise added on mutation |
 | `--seed` | none | Fix the RNG seed for a reproducible run |
+| `--init-weights [PATH]` | none (random population) | Seed generation zero from a saved weight vector instead of starting from scratch — see below |
 | `--out-dir` | `output` | Where the two JSON files are written |
 
 Training stops early if the best fitness in the population plateaus for several generations in a
 row — see `plateau_patience` in `ga/trainer.py` if you want to change that patience.
 
+## Live output
+
+`best_weights.json` and `training_history.json` are (re)written after *every* generation, not
+just once at the end — `best_weights.json` always holds the fittest individual seen so far, and
+`training_history.json` grows by one entry per generation as the run progresses. This means:
+
+- You can point the web app's Training Lab tab at `output/` (or copy the files into
+  `web/public/data/`) and watch a long run's fitness curve update as it trains, rather than
+  waiting for it to finish.
+- Killing a run early (`Ctrl+C`, a crash, running out of time) never loses progress — whatever
+  was written after the last completed generation is a valid, complete pair of output files on
+  its own.
+- Each write replaces the previous file atomically (write to a temp file, then rename over the
+  target), so a reader polling the output directory mid-run never sees a half-written file.
+
+## Starting training from existing weights
+
+By default, `train.py` behaves exactly as before: generation zero is a fully random population,
+and every run starts from scratch. Passing `--init-weights` changes that: instead of randomizing
+the whole population, one individual is set to *exactly* the weight vector you supply, and the
+rest of the population is filled with mutated copies of it (using the same `--mutation-rate` /
+`--mutation-sigma` as the rest of the run). Evolution then proceeds as normal from there — the
+seeded individual is carried forward unchanged by elitism unless something in the mutated
+population beats it, so a run can never do *worse* than the weights it started with, and it will
+"tweak" them generation over generation the same way it would tweak any other individual.
+
+```bash
+# Use the predecided default file (init_weights/default.json), zeroed out unless you've edited it
+python train.py --init-weights
+
+# Point at any file in the same shape, e.g. continue evolving a previous run's result
+python train.py --init-weights output/best_weights.json
+
+# Or any other path
+python train.py --init-weights path/to/my_weights.json
+```
+
+**File format.** `--init-weights` accepts the same JSON shape `train.py` itself writes as
+`best_weights.json`:
+
+```json
+{
+  "weightNames": ["aggregate_height", "max_height", "..."],
+  "weights": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+}
+```
+
+A bare list of 12 numbers (`[0, 0, 0, ...]`, no `weightNames`) is also accepted. The twelve
+weights are, in order: the eight board-shape features (`aggregate_height`, `max_height`,
+`bumpiness`, `height_variance`, `holes`, `row_transitions`, `column_transitions`, `well_sum`),
+then the four one-hot line-clear features (`clear_single`, `clear_double`, `clear_triple`,
+`clear_tetris`) — see `bot/evaluate.py` and `docs/DESIGN.md` for what each one means. If
+`weightNames` is present, weights are matched up by name rather than position, so a file with
+weights in a different order, or missing/extra entries, still lines up correctly (with a printed
+warning for anything that doesn't match); a file with too few or too many bare weights is padded
+or truncated the same way, also with a warning.
+
+**Where the file lives.** [`init_weights/default.json`](init_weights/default.json) is the
+predecided default: `--init-weights` with no path uses it, and it ships zeroed out (every weight
+`0`, which is a neutral starting point — the bot doesn't yet weight any feature). Edit that file
+in place to always start from your own numbers, or pass an explicit path to use a different file
+per run — for example, to continue evolving `output/best_weights.json` from a previous session
+rather than always starting over.
+
 ## Running the tests
 
 ```bash
 python tests/test_engine.py
+python tests/test_init_weights.py
 ```
 
-A small set of assertion-based checks against hand-built board states (a board with exactly one
-known hole should report `holes == 1`, and so on), plus one full headless game run through the
-search and applied end to end. No test framework is required.
+`test_engine.py` is a small set of assertion-based checks against hand-built board states (a
+board with exactly one known hole should report `holes == 1`, and so on), plus one full headless
+game run through the search and applied end to end. `test_init_weights.py` covers the
+`--init-weights` file loading: the default template, the named and bare-list formats, and how
+short/long/reordered weight vectors are reconciled. No test framework is required for either.
 
 ## Layout
 
 ```
-engine/     board, pieces, SRS rotation/kicks, 7-bag, line clears, the Game state machine
-bot/        feature extraction, the linear evaluation function, the exhaustive placement search
-ga/         the individual representation and the genetic algorithm's generation loop
-train.py    command-line entry point
-tests/      assertion-based correctness checks
+engine/       board, pieces, SRS rotation/kicks, 7-bag, line clears, the Game state machine
+bot/          feature extraction, the linear evaluation function, the exhaustive placement search
+ga/           the individual representation and the genetic algorithm's generation loop
+init_weights/ predecided home for --init-weights files (default.json ships zeroed out)
+train.py      command-line entry point
+tests/        assertion-based correctness checks
 ```
 
 ## A note on performance

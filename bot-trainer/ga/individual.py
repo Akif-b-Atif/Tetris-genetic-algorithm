@@ -46,5 +46,17 @@ class Individual:
             weights.append(magnitude)
         return Individual(weights=weights)
 
+    @staticmethod
+    def seeded(weights: List[float]) -> "Individual":
+        """Build an individual from an externally supplied weight vector
+        (e.g. loaded from an --init-weights file) rather than randomizing
+        it. Used to seed a training run from a previous result instead of
+        starting from scratch -- see ga/trainer.py."""
+        if len(weights) != NUM_WEIGHTS:
+            raise ValueError(
+                f"expected {NUM_WEIGHTS} weights, got {len(weights)}"
+            )
+        return Individual(weights=list(weights))
+
     def clone(self) -> "Individual":
         return Individual(weights=self.weights[:], fitness=self.fitness)
