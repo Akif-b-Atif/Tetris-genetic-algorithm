@@ -66,6 +66,14 @@ it's reasoning about behaves identically to the board it will actually play on.
 - **Lock delay:** implemented for human play, where it matters for feel. The bot never uses it —
   it computes a target final placement and hard-drops directly into it, so a grace period to
   adjust after landing is irrelevant to how it decides anything.
+- **Tucks and slides (including T-spin setups):** locking a piece always uses its actual, live
+  row — wherever the player's moves and rotations left it — rather than recomputing a fresh
+  straight drop from spawn. This matters specifically for a piece that's moved sideways into a
+  notch under an overhang after already falling past it: recomputing from spawn would walk
+  straight down from the top, hit the underside of the overhang, and lock the piece there instead
+  of in the notch it actually occupies. `Game.apply()` accepts an explicit `row` for exactly this
+  reason (see the `Placement` type in `src/engine/game.ts`); the bot's search never performs a
+  tuck, so it's the one caller that still relies on the spawn-based recomputation.
 
 ## What the bot sees
 

@@ -157,12 +157,23 @@ export default function BotMode() {
               {featuresAsVector(lastCandidate.features).map((v, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between" }}>
                   <span>{WEIGHT_NAMES[i]}</span>
-                  <span>{v}</span>
+                  {/* Fixed decimal places + a fixed-width, right-aligned
+                      column: some features (like height_variance) are
+                      raw floating-point divisions that can print as a
+                      short integer-looking value one frame and a long
+                      run of decimals the next, which otherwise makes
+                      this column visibly jump around at high autoplay
+                      speeds. */}
+                  <span style={{ minWidth: 52, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                    {v.toFixed(2)}
+                  </span>
                 </div>
               ))}
               <div style={{ display: "flex", justifyContent: "space-between", color: "var(--amber)" }}>
                 <span>lines cleared</span>
-                <span>{lastCandidate.linesCleared}</span>
+                <span style={{ minWidth: 52, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                  {lastCandidate.linesCleared}
+                </span>
               </div>
             </div>
           </Panel>

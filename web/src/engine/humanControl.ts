@@ -167,7 +167,14 @@ export class HumanControl {
   }
 
   private lock(hardDropCells: number): boolean {
-    this.game.apply({ state: this.state, col: this.col, useHold: false, hardDropCells });
+    // Pass the piece's actual row explicitly -- this.row already
+    // reflects every move and rotation the player made, including any
+    // slide underneath an overhang, so it's the one source of truth
+    // for where the piece really is. Letting Game.apply() recompute
+    // it from spawn instead would discard that and silently move the
+    // lock to wherever a straight drop lands, which is wrong for any
+    // tuck (see the comment on Placement.row).
+    this.game.apply({ state: this.state, col: this.col, row: this.row, useHold: false, hardDropCells });
     this.resetForCurrentPiece();
     return true;
   }

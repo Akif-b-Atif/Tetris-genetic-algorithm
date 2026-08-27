@@ -16,8 +16,8 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("play");
 
   return (
-    <div style={{ maxWidth: 1040, margin: "0 auto", padding: "40px 24px 80px" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 36, flexWrap: "wrap", gap: 16 }}>
+    <div style={{ maxWidth: 1040, margin: "0 auto", padding: "24px 24px 32px" }}>
+      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 16 }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <HeaderMark />
@@ -33,7 +33,7 @@ export default function App() {
               Tetris & the evolutionary bot
             </h1>
           </div>
-          <p style={{ color: "var(--text-muted)", fontSize: 13.5, margin: "8px 0 0 0", maxWidth: 560, lineHeight: 1.6 }}>
+          <p style={{ color: "var(--text-muted)", fontSize: 13.5, margin: "6px 0 0 0", maxWidth: 560, lineHeight: 1.5 }}>
             A guideline-compliant Tetris implementation, paired with a bot that scores every legal
             placement with a hand-designed evaluation function whose weights were evolved offline
             by a genetic algorithm.
@@ -68,7 +68,7 @@ export default function App() {
         {tab === "training" && <TrainingDashboard />}
       </main>
 
-      <footer style={{ marginTop: 64, paddingTop: 20, borderTop: "1px solid var(--line)", color: "var(--text-faint)", fontSize: 12, fontFamily: "var(--font-mono)" }}>
+      <footer style={{ marginTop: 32, paddingTop: 14, borderTop: "1px solid var(--line)", color: "var(--text-faint)", fontSize: 12, fontFamily: "var(--font-mono)" }}>
         Game engine and bot inference run entirely in the browser. Weights were trained offline
         with the Python genetic-algorithm trainer in <code>bot-trainer/</code>.
       </footer>

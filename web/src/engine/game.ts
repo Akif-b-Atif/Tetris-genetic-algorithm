@@ -13,6 +13,17 @@ export interface Placement {
   state: number;
   col: number;
   useHold: boolean;
+  /** The exact row the piece comes to rest at. Required for any
+   * placement that isn't a straight drop from spawn -- in particular
+   * a piece slid or rotated sideways underneath an overhang (T-spins
+   * and other tucks), whose final row can't be recovered from `state`
+   * and `col` alone. Interactive play always supplies this, since it
+   * already knows exactly where the live piece sits. Omit only for a
+   * placement that genuinely is a straight drop from spawn in the
+   * given rotation and column -- the bot's case, since its search
+   * never considers tucks -- and Game.apply() will compute it the old
+   * way, via a straight hard drop from spawn. */
+  row?: number;
   /** Cells of hard-drop bonus (2 pts/cell) to award for this placement.
    * Omit to default to the full spawn-to-landing distance -- correct
    * for the bot, which always conceptually hard-drops immediately on
@@ -86,9 +97,26 @@ export class Game {
 
     const pieceId = this.current;
     const pos = spawnPosition(pieceId, WIDTH, BUFFER_ROWS);
-    const dropRow = this.board.hardDropRow(pieceId, placement.state, placement.col, pos.row);
+
+    // When the caller supplies an exact row, trust it instead of
+    // recomputing a straight hard drop from spawn. Recomputing here
+    // would be wrong for any placement reached by moving sideways
+    // under an overhang after already falling past it (T-spins and
+    // other tucks): a straight drop from spawn hits the underside of
+    // the overhang and stops there, several rows above the tucked
+    // piece's actual resting spot -- silently teleporting the lock to
+    // the top of the stack instead of into the notch the player
+    // actually filled.
+    const dropRow = placement.row ?? this.board.hardDropRow(pieceId, placement.state, placement.col, pos.row);
     if (this.board.collides(pieceId, placement.state, placement.col, dropRow)) {
       throw new Error("illegal placement");
+    }
+    // A supplied row must be an actual resting position -- blocked
+    // from falling any further -- otherwise a placement could lock
+    // floating above open space instead of where a real piece would
+    // land.
+    if (placement.row !== undefined && !this.board.collides(pieceId, placement.state, placement.col, dropRow + 1)) {
+      throw new Error("illegal placement: row is not resting on a surface");
     }
 
     this.board.place(pieceId, placement.state, placement.col, dropRow, PIECE_INDEX[pieceId]);
