@@ -1,6 +1,6 @@
 # Tetris & the Evolutionary Bot
 
-['https://tetris-genetic-algorithm.vercel.app/'](Deployment)
+['Deployment'](https://tetris-genetic-algorithm.vercel.app/)
 
 A guideline-compliant, from-scratch Tetris implementation, paired with a bot that plays it by
 scoring every legal placement against a hand-designed evaluation function whose weights were
